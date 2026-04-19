@@ -17,8 +17,10 @@ Global options:
 
 - [privadd_help.md](./privadd_help.md)
 - [deploy_help.md](./deploy_help.md)
+- [compile_help.md](./compile_help.md)
 
 ## Quick summary
 
 - `clm privadd --name <name> --value <value>`
 - `clm deploy [options] <file>`
+- `clm compile [options] <file>`
