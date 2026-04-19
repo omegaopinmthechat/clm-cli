@@ -11,8 +11,8 @@ program.name("clm").description("CLM SMART CONTRACT CLI").version("0.0.1");
 // This is for adding private keys
 program
   .command("privadd")
-  .requiredOption("--name <name>", "key name")
-  .requiredOption("--value <value>", "private key")
+  .requiredOption("-a, --name <name>", "key name")
+  .requiredOption("-v, --value <value>", "private key")
   .action((options) => {
     addPrivateKey(options.name, options.value);
   });
@@ -21,9 +21,9 @@ program
 program
   .command("deploy")
   .argument("<file>", "Solidity file path")
-  .option("--network <network>", "Network (sepolia)", "sepolia")
-  .option("--key <name>", "Saved key name")
-  .option("--privatekey <value>", "Raw private key") 
+  .option("-n, --network <network>", "Network (sepolia)", "sepolia")
+  .option("-k, --key <name>", "Saved key name")
+  .option("-p, --privatekey <value>", "Raw private key") 
   .action(async (file, options) => {
     try {
       await deploy(
