@@ -1,6 +1,6 @@
 import ora from "ora";
 
-// export const spinner = ora("Compiling Solidity...").start();
+// Spinner functions
 let spinner: any;
 export function spinnerStart(activity: string) {
   spinner = ora(activity).start();
@@ -12,4 +12,8 @@ export function spinnerSucceed(activity: string) {
 
 export function spinnerFailed(activity: string){
     spinner.fail(activity);
+}
+
+export function spinnerText(activity: string){
+    spinner.text = `${activity}`;
 }
