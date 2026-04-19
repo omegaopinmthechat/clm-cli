@@ -2,6 +2,8 @@
 import { Command } from "commander";
 import { deploy } from "./deploy";
 import { addPrivateKey } from "./privadd";
+import { compile } from "./compile";
+import chokidar from "chokidar";
 
 const program = new Command();
 
@@ -36,5 +38,33 @@ program
       console.log("Error", err);
     }
   });
+
+  // added a watch that auto recompiles when the file is saved
+program
+  .command("compile")
+  .argument("<file>", "Solidity file path")
+  .option("--watch", "Watch file for changes")
+  .action((file, options) => {
+    if (options.watch) {
+      console.log("Watching for changes...");
+
+      chokidar.watch(file).on("change", () => {
+        console.clear();
+        console.log("Recompiling...");
+        try {
+          compile(file);
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    } else {
+      try {
+        compile(file);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  });
+
 
 program.parse();
