@@ -25,14 +25,22 @@ program
   .argument("<file>", "Solidity file path")
   .option("-n, --network <network>", "Network (sepolia)", "sepolia")
   .option("-k, --key <name>", "Saved key name")
-  .option("-p, --privatekey <value>", "Raw private key") 
+  .option("--privatekey <value>", "Raw private key")
+  .option("-p, --params <params>", "Constructor params (comma-separated)")
+  .option("-c, --contract <name>", "Contract name")
   .action(async (file, options) => {
     try {
+      if (options.key && options.privatekey) {
+        throw new Error("Use either --key or --privatekey");
+      }
+
       await deploy(
         file,
         options.network,
-        options.privatekey, 
-        options.key, 
+        options.privatekey,
+        options.key,
+        options.params,
+        options.contract,
       );
     } catch (err) {
       console.log("Error", err);
@@ -43,7 +51,7 @@ program
 program
   .command("compile")
   .argument("<file>", "Solidity file path")
-  .option("--watch", "Watch file for changes")
+  .option("-w, --watch", "Watch file for changes")
   .action((file, options) => {
     if (options.watch) {
       console.log("Watching for changes...");

@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.21;
 
-contract MyContract {
-    string public message = "Hello CLM";
+contract CounterLab {
+    uint256 public count;
 
-    function setMessage(string memory _msg) public {
-        message = _msg;
+    constructor(uint256 initialCount) {
+        count = initialCount;
+    }
+
+    function increment() public {
+        count += 1;
+    }
+
+    function setCount(uint256 nextCount) public {
+        count = nextCount;
+    }
+
+    function readCount() public view returns (uint256) {
+        return count;
     }
 }
-
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.31;
 
 contract Voting {
     struct Candidate {

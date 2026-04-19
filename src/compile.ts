@@ -66,19 +66,23 @@ export function compile(contractPath: string) {
   if (!fs.existsSync(artifactsDir)) {
     fs.mkdirSync(artifactsDir);
   }
-  let count = 0;
-  for (const name in contracts) {
+  let compiledCount = 0;
+  const contractNames = Object.keys(contracts);
+
+  for (const name of contractNames) {
     const contract = contracts[name];
 
-    if (!contract.evm?.bytecode?.object) {
-      console.warn(`Skipping ${name} (no bytecode)`);
+    const bytecode = contract.evm?.bytecode?.object;
+
+    if (!bytecode) {
+      console.warn(`${name} has no deployable bytecode`);
       continue;
     }
 
     const artifact = {
       contractName: name,
       abi: contract.abi,
-      bytecode: contract.evm.bytecode.object,
+      bytecode,
     };
 
     fs.writeFileSync(
@@ -86,10 +90,12 @@ export function compile(contractPath: string) {
       JSON.stringify(artifact, null, 2),
     );
 
-    count ++;
+    compiledCount++;
   }
 
-  spinnerSucceed(`Compiled ${count} contract(s)`);
+  spinnerSucceed(
+    `Compiled ${contractNames.length} contract(s) (${compiledCount} deployable)`,
+  );
 
   return contracts;
 }
