@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { ethers } from "ethers";
 import { SEPOLIA_RPC } from "./config/env";
 import { compile } from "./compile";
@@ -6,26 +8,65 @@ import {
   spinnerStart,
   spinnerSucceed,
   spinnerFailed,
-  spinnerText,
 } from "./utils/ora.spinner";
 import { parseParams } from "./utils/parser";
 import {
   selectContract,
   askConstructorParams,
 } from "./utils/contract.inquirer";
+import { ensureDevChainRunning } from "./devchain";
 
-export async function deploy(
-  contractPath: string,
-  network: string,
+export type DeployMode = "default" | "prod" | "dev";
+
+function stripConsoleForProd(source: string): string {
+  const withoutConsoleImports = source.replace(
+    /^\s*import\s+[^;]*["'][^"']*console\.sol["'][^;]*;\s*$/gm,
+    "",
+  );
+
+  return withoutConsoleImports.replace(/console\.log\s*\([\s\S]*?\)\s*;/g, "{}");
+}
+
+function persistAddress(contractName: string, address: string, addressKey: string) {
+  const artifactPath = path.join(
+    process.cwd(),
+    "artifacts",
+    `${contractName}.json`,
+  );
+
+  if (!fs.existsSync(artifactPath)) {
+    return;
+  }
+
+  const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf-8"));
+  artifact.addresses = artifact.addresses ?? {};
+  artifact.addresses[addressKey] = address;
+  artifact.address = address;
+  artifact.network = addressKey;
+  fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
+}
+
+async function buildSigner(
+  mode: DeployMode,
   pkey?: string,
   keyName?: string,
-  paramsStr?: string,
-  contractNameArg?: string,
-) {
-  const contracts = compile(contractPath);
-  const contractNames = Object.keys(contracts);
-  const hasExplicitContract = Boolean(contractNameArg);
-  const hasExplicitParams = Boolean(paramsStr && paramsStr.trim().length > 0);
+): Promise<ethers.Signer> {
+  if (mode === "dev") {
+    if (pkey || keyName) {
+      console.warn("Ignoring --key/--privatekey in --dev mode");
+    }
+
+    const { started, rpcUrl } = await ensureDevChainRunning();
+
+    if (started) {
+      console.log(`Started local dev chain at ${rpcUrl}`);
+    } else {
+      console.log(`Using local dev chain at ${rpcUrl}`);
+    }
+
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    return provider.getSigner(0);
+  }
 
   // Wallet setup
   if (pkey && keyName) {
@@ -39,7 +80,45 @@ export async function deploy(
   }
 
   const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC);
-  const wallet = new ethers.Wallet(privateKey, provider);
+  return new ethers.Wallet(privateKey, provider);
+}
+
+export async function deploy(
+  contractPath: string,
+  network: string,
+  pkey?: string,
+  keyName?: string,
+  paramsStr?: string,
+  contractNameArg?: string,
+  mode: DeployMode = "default",
+) {
+  const addressKey = mode === "dev" ? "dev" : "sepolia";
+
+  if (network !== "sepolia" && mode !== "dev") {
+    console.warn(`Network "${network}" is not configured yet. Falling back to sepolia.`);
+  }
+
+  const sourceOverride =
+    mode === "prod"
+      ? stripConsoleForProd(fs.readFileSync(contractPath, "utf-8"))
+      : undefined;
+
+  if (mode === "prod") {
+    console.log("Deploy mode: prod (stripping console logs from publish build)");
+  }
+
+  if (mode === "dev") {
+    console.log("Deploy mode: dev (local persistent dev chain)");
+  }
+
+  const contracts = compile(contractPath, {
+    sourceOverride,
+    evmVersion: mode === "dev" ? "paris" : undefined,
+  });
+  const contractNames = Object.keys(contracts);
+  const hasExplicitContract = Boolean(contractNameArg);
+  const hasExplicitParams = Boolean(paramsStr && paramsStr.trim().length > 0);
+  const signer = await buildSigner(mode, pkey, keyName);
 
   // Interactive mode is only for the fully guided flow.
   // Passing --contract and/or --params should skip contract selection loop.
@@ -79,11 +158,12 @@ export async function deploy(
 
         spinnerStart(`Deploying ${contractName}...`);
 
-        const factory = new ethers.ContractFactory(abi, bytecode, wallet);
+        const factory = new ethers.ContractFactory(abi, bytecode, signer);
         const deployed = await factory.deploy(...params);
 
         await deployed.waitForDeployment();
         const address = await deployed.getAddress();
+        persistAddress(contractName, address, addressKey);
 
         spinnerSucceed(`Deployed ${contractName}`);
         console.log(`📍 Address: ${address}`);
@@ -153,11 +233,12 @@ export async function deploy(
 
       spinnerStart(`Deploying ${selectedContractName}...`);
 
-      const factory = new ethers.ContractFactory(abi, bytecode, wallet);
+      const factory = new ethers.ContractFactory(abi, bytecode, signer);
       const deployed = await factory.deploy(...params);
 
       await deployed.waitForDeployment();
       const address = await deployed.getAddress();
+      persistAddress(selectedContractName, address, addressKey);
 
       spinnerSucceed(`Deployed ${selectedContractName}`);
       console.log(`Address: ${address}`);

@@ -15,31 +15,56 @@ clm deploy [options] <file>
 ## Options
 
 - `-n, --network <network>`: network label (default: `sepolia`)
+- `--dev`: deploy to a local persistent dev chain at `http://127.0.0.1:8545` (no private key required)
+- `--prod`: deploy a production build with `console.log(...)` and `console.sol` imports stripped from publish output only
 - `-k, --key <name>`: name of saved key in `.clm/keys.json`
 - `--privatekey <value>`: raw private key
 - `-p, --params <params>`: constructor params (comma-separated)
 - `-c, --contract <name>`: explicit contract name to deploy
 
-## Private key source precedence
+Validation rules:
+
+- `--dev` and `--prod` are mutually exclusive.
+- Passing both `--key` and `--privatekey` throws an error.
+
+## Private key source precedence (default and `--prod`)
 
 1. If `--key` is provided, the CLI decrypts and uses that saved key.
 2. Otherwise it uses `--privatekey`.
 
 Validation rules:
 
-- Passing both `--key` and `--privatekey` throws an error.
 - If no private key source is provided, deploy throws an error.
+- In `--dev` mode, wallet flags are ignored and a signer from the local dev chain is used.
 
 ## What this command does
 
 1. Compiles the Solidity file with `solc`.
-2. Resolves wallet from either saved key (`--key`) or raw key (`--privatekey`).
-3. Builds provider with `SEPOLIA_RPC`.
+2. If `--prod` is set, strips `console.log(...)` and matching `console.sol` import lines only in the compiled deployment source.
+3. Resolves signer from mode:
+   - `--dev`: local dev chain signer (`127.0.0.1:8545`)
+   - default/`--prod`: wallet from `--key` or `--privatekey` on `SEPOLIA_RPC`
 4. Chooses deploy mode based on provided options.
 5. Deploys using `ethers.ContractFactory`.
 6. Waits for deployment and prints deployed address.
+7. Stores deployed address into `artifacts/<ContractName>.json`:
+   - `address`: last deployed address (backward compatibility)
+   - `addresses.<networkKey>`: network-specific address (`dev` or `sepolia`)
 
 ## Deploy modes
+
+Environment mode:
+
+- `--dev`: runs deployment against a local persistent Ganache RPC (`127.0.0.1:8545`).
+- `--prod`: deploys a sanitized publish build without `console.log` calls/imports.
+- default (no flag): deploys source as-is.
+
+## Why `console.log(...)` Works On Sepolia
+
+- In this project, `console.log(...)` comes from the custom `console.sol` library and emits Solidity events (for example `LogString`), not a chain-specific debug opcode.
+- Because events are normal EVM behavior, they work on Sepolia when you deploy without `--prod`.
+- The `call` command reads transaction receipt logs and decodes those events, which is why the printed value appears in CLI output.
+- If you deploy with `--prod`, console imports/calls are stripped before compilation, so those log events are not present in the deployed contract.
 
 Guided mode:
 
@@ -53,11 +78,10 @@ Targeted mode:
 
 - Trigger: `--contract` and/or `--params` is provided
 - Behavior:
-   - Uses `--contract` if provided.
-   - If `--contract` is omitted and multiple contracts exist, throws:
-      - `Multiple contracts found. Use --contract to specify one.`
-   - If constructor params are provided with `--params`, validates count.
-   - If constructor params are required and `--params` is omitted, prompts once for params.
+  - Uses `--contract` if provided.
+  - If `--contract` is omitted and multiple contracts exist, throws `Multiple contracts found. Use --contract to specify one.`
+  - If constructor params are provided with `--params`, validates count.
+  - If constructor params are required and `--params` is omitted, prompts once for params.
 
 ## Constructor params format (`--params`)
 
@@ -69,9 +93,13 @@ Targeted mode:
 
 ## Important behavior notes
 
-- Current implementation accepts `--network` but always uses `SEPOLIA_RPC` from `.env`.
+- `--network` currently maps to `SEPOLIA_RPC` for non-dev deployments.
 - Saved keys must exist in `.clm/keys.json` and be decryptable with the same `SECRET` used when they were stored.
-- `--contract` is now honored directly and skips the contract selection loop.
+- `--contract` is honored directly and skips the contract selection loop.
+- `--prod` stripping happens only in-memory for compilation and does not modify your Solidity source files.
+- In `--dev` mode, the CLI ensures a local Ganache RPC is running and reuses it for future `--dev` calls.
+- In `--dev` mode, contracts are compiled with an EVM-compatible target for local Ganache execution.
+- If you want `console.log(...)` events on testnet, deploy without `--prod`.
 
 ## File locations
 
@@ -108,6 +136,18 @@ Deploy with constructor params inline:
 clm deploy contract/withParams.sol -k address1 -c WithParams -p 42,true,"hello"
 ```
 
+Deploy to local dev chain:
+
+```bash
+clm deploy contract/withParams.sol --dev -c CounterLab -p 5
+```
+
+Deploy production build with console logging stripped for publish output:
+
+```bash
+clm deploy contract/myContract.sol --prod -k address1 -c MyContract
+```
+
 Typical output:
 
 ```text
@@ -129,3 +169,7 @@ MyContract deployed at: 0x...
    - Fix Solidity errors printed in the terminal output.
 6. RPC/wallet errors
    - Verify `SEPOLIA_RPC`, private key format, balance, and RPC access.
+7. `--dev` deploy works but `call` cannot find contract
+   - Ensure deploy and call target the same network (`--dev` for local chain, default for sepolia).
+8. `console.log(...)` does not print
+   - Ensure contract was not deployed with `--prod` and that the call targets the same network used during deploy.

@@ -4,6 +4,7 @@ import { deploy } from "./deploy";
 import { addPrivateKey } from "./privadd";
 import { compile } from "./compile";
 import chokidar from "chokidar";
+import { callContract } from "./call";
 
 const program = new Command();
 
@@ -19,20 +20,54 @@ program
     addPrivateKey(options.name, options.value);
   });
 
+// Call : call the contract functions
+program
+  .command("call")
+  .argument("<contract>", "Contract name")
+  .argument("<function>", "Function name")
+  .argument("[args...]", "Function arguments")
+  .option("-n, --network <network>", "Network (sepolia)", "sepolia")
+  .option("--dev", "Call on local persistent dev chain")
+  .option("-k, --key <name>", "Saved key name")
+  .option("--privatekey <value>", "Raw private key")
+  .action(async (contract, func, args, options) => {
+    try {
+      await callContract(contract, func, args, {
+        mode: options.dev ? "dev" : "default",
+        network: options.network,
+        pkey: options.privatekey,
+        keyName: options.key,
+      });
+    } catch (err) {
+      console.log("Error", err);
+    }
+  });
+
 // This is depolyment bash keys
 program
   .command("deploy")
   .argument("<file>", "Solidity file path")
   .option("-n, --network <network>", "Network (sepolia)", "sepolia")
+  .option("--dev", "Deploy to an in-memory dev chain")
+  .option(
+    "--prod",
+    "Deploy a production build that strips console.log and console imports",
+  )
   .option("-k, --key <name>", "Saved key name")
   .option("--privatekey <value>", "Raw private key")
   .option("-p, --params <params>", "Constructor params (comma-separated)")
   .option("-c, --contract <name>", "Contract name")
   .action(async (file, options) => {
     try {
+      if (options.dev && options.prod) {
+        throw new Error("Use either --dev or --prod, not both");
+      }
+
       if (options.key && options.privatekey) {
         throw new Error("Use either --key or --privatekey");
       }
+
+      const mode = options.dev ? "dev" : options.prod ? "prod" : "default";
 
       await deploy(
         file,
@@ -41,6 +76,7 @@ program
         options.key,
         options.params,
         options.contract,
+        mode,
       );
     } catch (err) {
       console.log("Error", err);

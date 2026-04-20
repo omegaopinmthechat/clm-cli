@@ -3,9 +3,38 @@ import solc from "solc";
 import path from "path";
 import { spinnerStart, spinnerSucceed, spinnerFailed } from "./utils/ora.spinner";
 
-export function compile(contractPath: string) {
-  const fileName = path.basename(contractPath);
-  const source = fs.readFileSync(contractPath, "utf-8");
+export interface CompileOptions {
+  sourceOverride?: string;
+  sourceName?: string;
+  evmVersion?: string;
+}
+
+function resolveImportPath(
+  importPath: string,
+  rootContractPath: string,
+): string | null {
+  const contractDir = path.dirname(rootContractPath);
+
+  const candidates = [
+    path.resolve(contractDir, importPath),
+    path.resolve(process.cwd(), importPath),
+    path.resolve(process.cwd(), "node_modules", importPath),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+export function compile(contractPath: string, options: CompileOptions = {}) {
+  const absoluteContractPath = path.resolve(contractPath);
+  const fileName = options.sourceName ?? path.basename(absoluteContractPath);
+  const source =
+    options.sourceOverride ?? fs.readFileSync(absoluteContractPath, "utf-8");
 
   spinnerStart("Compiling solidity...");
 
@@ -20,17 +49,19 @@ export function compile(contractPath: string) {
           "*": ["abi", "evm.bytecode"],
         },
       },
+      ...(options.evmVersion ? { evmVersion: options.evmVersion } : {}),
     },
   };
 
   function findImports(importPath: string) {
-    try {
-      const fullPath = path.resolve("node_modules", importPath);
-      const content = fs.readFileSync(fullPath, "utf-8");
-      return { contents: content };
-    } catch {
-      return { error: "File not found" };
+    const fullPath = resolveImportPath(importPath, absoluteContractPath);
+
+    if (!fullPath) {
+      return { error: `File not found: ${importPath}` };
     }
+
+    const content = fs.readFileSync(fullPath, "utf-8");
+    return { contents: content };
   }
 
   const output = JSON.parse(
@@ -60,7 +91,12 @@ export function compile(contractPath: string) {
     throw new Error("Compilation failed.");
   }
 
-  const contracts = output.contracts[fileName];
+  const contracts = output.contracts?.[fileName];
+
+  if (!contracts) {
+    spinnerFailed("Compilation failed");
+    throw new Error(`No contracts found in ${fileName}`);
+  }
 
   const artifactsDir = path.join(process.cwd(), "artifacts");
   if (!fs.existsSync(artifactsDir)) {
