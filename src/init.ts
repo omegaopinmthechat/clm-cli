@@ -1,3 +1,17 @@
+function printYellowClMBanner() {
+  // ANSI yellow: \x1b[33m ... \x1b[0m
+  const banner = `\x1b[33m
+  00000000000000      00         0000       0000
+  00000000000000      00         00000     00000
+  0000                00         000 00   00 000
+  0000                00         000  00 00  000
+  0000                00         000   000   000
+  0000                00         000    0    000
+  00000000000000      00         000         000
+  00000000000000    000000       000         000
+\x1b[0m`;
+  console.log(banner);
+}
 import fs from "fs";
 import path from "path";
 
@@ -110,6 +124,8 @@ export function initProject() {
   console.log(
     'Use import "clm-cli/console.sol" in your contracts to access console.log.',
   );
+
+  printYellowClMBanner();
 }
 
 export const initproject = initProject;
