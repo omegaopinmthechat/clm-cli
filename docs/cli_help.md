@@ -28,6 +28,7 @@ Global options:
 ## Quick summary
 
 - `clm privadd --name <name> --value <value> [--password <value>]`
+- `clm privadd --name <name> --value <value> --password <value>`
 - `clm addrpc -n sepolia`
 - `clm deploy [options] <file>`
 - `clm compile [options] <file>`

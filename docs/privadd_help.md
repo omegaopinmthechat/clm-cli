@@ -5,14 +5,14 @@ The `privadd` command stores a private key under a name so you can deploy withou
 ## Usage
 
 ```bash
-clm privadd --name <name> --value <value> [--password <value>]
+clm privadd --name <name> --value <value> --password <value>
 ```
 
 ## Options
 
 - `--name <name>` (required): alias used to store and retrieve the private key
 - `--value <value>` (required): raw private key string
-- `--password <value>` (optional): password used to derive the encryption key
+- `--password <value>` (required): password used to derive the encryption key
 
 ## What this command does
 
@@ -51,12 +51,6 @@ clm privadd --name <name> --value <value> [--password <value>]
 ## Examples
 
 Save a key:
-
-```bash
-clm privadd --name address1 --value 0xyourprivatekey
-```
-
-Save a key with explicit password (non-interactive):
 
 ```bash
 clm privadd --name address1 --value 0xyourprivatekey --password mypass

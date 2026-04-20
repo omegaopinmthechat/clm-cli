@@ -6,7 +6,6 @@ import { compile } from "./compile";
 import chokidar from "chokidar";
 import { callContract } from "./call";
 import { initProject } from "./init";
-import { resolvePassword } from "./utils/password";
 import { addRpcConfig } from "./config/rpc";
 
 const program = new Command();
@@ -19,15 +18,14 @@ program
   .command("privadd")
   .requiredOption("-a, --name <name>", "key name")
   .requiredOption("-v, --value <value>", "private key")
-  .option("--password <value>", "Password used to encrypt saved key")
+  .requiredOption("--password <value>", "Password used to encrypt saved key")
   .action(async (options) => {
     try {
-      const password = await resolvePassword({
-        providedPassword: options.password,
-        requireConfirmation: !options.password,
-        message: "Set password for saved key",
-        confirmationMessage: "Confirm password",
-      });
+      const password = options.password.trim();
+
+      if (!password) {
+        throw new Error("Password cannot be empty");
+      }
 
       addPrivateKey(options.name, options.value, password);
     } catch (err) {

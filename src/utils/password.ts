@@ -42,5 +42,5 @@ export async function resolvePassword(
     }
   }
 
-  return password;
+  return password.trim();
 }
