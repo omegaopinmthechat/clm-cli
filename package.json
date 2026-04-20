@@ -2,6 +2,11 @@
   "name": "clm-cli",
   "version": "0.0.2",
   "description": "",
+  "files": [
+    "dist",
+    "console.sol",
+    "src/print/console.sol"
+  ],
   "bin": {
     "clm": "./dist/index.js"
   },

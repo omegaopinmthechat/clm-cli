@@ -5,6 +5,7 @@ import { addPrivateKey } from "./privadd";
 import { compile } from "./compile";
 import chokidar from "chokidar";
 import { callContract } from "./call";
+import { initProject } from "./init";
 
 const program = new Command();
 
@@ -18,6 +19,18 @@ program
   .requiredOption("-v, --value <value>", "private key")
   .action((options) => {
     addPrivateKey(options.name, options.value);
+  });
+
+// Initialize project scaffold
+program
+  .command("init")
+  .description("Initialize scripts/ with console.sol support")
+  .action(() => {
+    try {
+      initProject();
+    } catch (err) {
+      console.error(err);
+    }
   });
 
 // Call : call the contract functions

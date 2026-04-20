@@ -9,16 +9,44 @@ export interface CompileOptions {
   evmVersion?: string;
 }
 
+const CONSOLE_IMPORT_ALIASES = new Set([
+  "clm-cli/console.sol",
+  "clm-cli/src/print/console.sol",
+  "src/print/console.sol",
+  "console.sol",
+]);
+
+function resolveBundledConsoleImport(importPath: string): string | null {
+  if (!CONSOLE_IMPORT_ALIASES.has(importPath)) {
+    return null;
+  }
+
+  const bundledCandidates = [
+    path.resolve(__dirname, "print", "console.sol"),
+    path.resolve(__dirname, "..", "src", "print", "console.sol"),
+  ];
+
+  for (const candidate of bundledCandidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function resolveImportPath(
   importPath: string,
   rootContractPath: string,
 ): string | null {
   const contractDir = path.dirname(rootContractPath);
+  const bundledConsoleImport = resolveBundledConsoleImport(importPath);
 
   const candidates = [
     path.resolve(contractDir, importPath),
     path.resolve(process.cwd(), importPath),
     path.resolve(process.cwd(), "node_modules", importPath),
+    ...(bundledConsoleImport ? [bundledConsoleImport] : []),
   ];
 
   for (const candidate of candidates) {
