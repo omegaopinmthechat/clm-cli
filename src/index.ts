@@ -21,12 +21,11 @@ program
   .requiredOption("--password <value>", "Password used to encrypt saved key")
   .action(async (options) => {
     try {
-      const password = options.password.trim();
+      const password = options.password;
 
-      if (!password) {
-        throw new Error("Password cannot be empty");
+      if (!password || !password.trim()) {
+        throw new Error("Password cannot be empty or whitespace only");
       }
-
       addPrivateKey(options.name, options.value, password);
     } catch (err) {
       console.log("Error", err);
