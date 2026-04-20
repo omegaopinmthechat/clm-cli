@@ -1,4 +1,5 @@
 // This saves the address locally
+import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { encrypt } from "./utils/hashing";
@@ -6,10 +7,25 @@ import { encrypt } from "./utils/hashing";
 const CLM_DIR = path.join(process.cwd(), ".clm");
 const KEY_FILE = path.join(CLM_DIR, "keys.json");
 
+function hideDirOnWindows(dirPath: string): void {
+  if (process.platform !== "win32") {
+    return;
+  }
+
+  try {
+    // Best-effort: hide the folder in File Explorer on Windows.
+    spawnSync("attrib", ["+h", dirPath], { stdio: "ignore", windowsHide: true });
+  } catch {
+    // Ignore failures and continue to keep key storage functional.
+  }
+}
+
 export function addPrivateKey(name: string, value: string) {
   if (!fs.existsSync(CLM_DIR)) {
-    fs.mkdirSync(CLM_DIR);
+    fs.mkdirSync(CLM_DIR, { recursive: true });
   }
+
+  hideDirOnWindows(CLM_DIR);
 
   let data: any = {};
 
