@@ -9,7 +9,7 @@ import { callContract } from "./call";
 const program = new Command();
 
 // initialization
-program.name("clm").description("CLM SMART CONTRACT CLI").version("0.0.1");
+program.name("clm").description("CLM SMART CONTRACT CLI").version("0.0.2");
 
 // This is for adding private keys
 program
