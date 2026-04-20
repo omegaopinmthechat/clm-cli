@@ -5,20 +5,22 @@ The `privadd` command stores a private key under a name so you can deploy withou
 ## Usage
 
 ```bash
-clm privadd --name <name> --value <value>
+clm privadd --name <name> --value <value> [--password <value>]
 ```
 
 ## Options
 
 - `--name <name>` (required): alias used to store and retrieve the private key
 - `--value <value>` (required): raw private key string
+- `--password <value>` (optional): password used to derive the encryption key
 
 ## What this command does
 
 1. Creates a `.clm` directory in the current working directory if it does not exist.
 2. Loads `.clm/keys.json` if present.
-3. Encrypts the given private key using AES-256-CBC.
-4. Saves encrypted output under the provided key name.
+3. Derives an encryption key from your password using `scrypt`.
+4. Encrypts the given private key using AES-256-GCM.
+5. Saves encrypted output under the provided key name.
 
 ## File locations
 
@@ -28,14 +30,19 @@ clm privadd --name <name> --value <value>
 
 ## Encryption notes
 
-- Encryption/decryption key is derived from `SECRET` in `.env`.
-- If `SECRET` changes later, previously stored keys may fail to decrypt.
+- No encryption key is stored in files or `.env`.
+- You must use the same password later when decrypting a saved key.
 - Stored object format:
 
 ```json
 {
   "address1": {
+    "version": 1,
+    "kdf": "scrypt",
+    "cipher": "aes-256-gcm",
+    "salt": "<hex>",
     "iv": "<hex>",
+    "authTag": "<hex>",
     "encrypted": "<hex>"
   }
 }
@@ -49,6 +56,12 @@ Save a key:
 clm privadd --name address1 --value 0xyourprivatekey
 ```
 
+Save a key with explicit password (non-interactive):
+
+```bash
+clm privadd --name address1 --value 0xyourprivatekey --password mypass
+```
+
 Expected output:
 
 ```text
@@ -60,4 +73,4 @@ Private key saved as "address1"
 1. Key not found later during deploy
    - Check the exact `--name` used when adding the key.
 2. Decryption fails after it worked before
-   - Verify `SECRET` in `.env` has not changed.
+  - Verify the same password is being used.

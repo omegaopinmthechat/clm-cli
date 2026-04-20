@@ -1,9 +1,10 @@
 import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
-import { SEPOLIA_RPC } from "./config/env";
+import { getRpcUrl } from "./config/rpc";
 import { getPrivateKey } from "./keyManager";
 import { ensureDevChainRunning } from "./devchain";
+import { resolvePassword } from "./utils/password";
 
 export type CallMode = "default" | "dev";
 
@@ -12,6 +13,7 @@ interface CallOptions {
   network?: string;
   pkey?: string;
   keyName?: string;
+  keyPassword?: string;
 }
 
 function resolveAddressFromArtifact(artifact: any, addressKey: string): string {
@@ -55,7 +57,13 @@ async function resolveCallContext(options: CallOptions) {
 
     if (options.pkey || options.keyName) {
       const privateKey = options.keyName
-        ? getPrivateKey(options.keyName)
+        ? getPrivateKey(
+          options.keyName,
+          await resolvePassword({
+            providedPassword: options.keyPassword,
+            message: `Password for saved key "${options.keyName}"`,
+          }),
+        )
         : options.pkey;
 
       if (!privateKey) {
@@ -88,13 +96,21 @@ async function resolveCallContext(options: CallOptions) {
     throw new Error("Use either --privatekey OR --key");
   }
 
-  const privateKey = options.keyName ? getPrivateKey(options.keyName) : options.pkey;
+  const privateKey = options.keyName
+    ? getPrivateKey(
+      options.keyName,
+      await resolvePassword({
+        providedPassword: options.keyPassword,
+        message: `Password for saved key "${options.keyName}"`,
+      }),
+    )
+    : options.pkey;
 
   if (!privateKey) {
     throw new Error("Private key required");
   }
 
-  const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC);
+  const provider = new ethers.JsonRpcProvider(getRpcUrl("sepolia"));
 
   return {
     provider,

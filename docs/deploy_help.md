@@ -19,6 +19,7 @@ clm deploy [options] <file>
 - `--prod`: deploy a production build with `console.log(...)` and `console.sol` imports stripped from publish output only
 - `-k, --key <name>`: name of saved key in `.clm/keys.json`
 - `--privatekey <value>`: raw private key
+- `--password <value>`: password for decrypting saved key from `--key`
 - `-p, --params <params>`: constructor params (comma-separated)
 - `-c, --contract <name>`: explicit contract name to deploy
 
@@ -29,7 +30,7 @@ Validation rules:
 
 ## Private key source precedence (default and `--prod`)
 
-1. If `--key` is provided, the CLI decrypts and uses that saved key.
+1. If `--key` is provided, the CLI decrypts and uses that saved key (prompts for password if `--password` is omitted).
 2. Otherwise it uses `--privatekey`.
 
 Validation rules:
@@ -43,7 +44,7 @@ Validation rules:
 2. If `--prod` is set, strips `console.log(...)` and matching `console.sol` import lines only in the compiled deployment source.
 3. Resolves signer from mode:
    - `--dev`: local dev chain signer (`127.0.0.1:8545`)
-   - default/`--prod`: wallet from `--key` or `--privatekey` on `SEPOLIA_RPC`
+   - default/`--prod`: wallet from `--key` or `--privatekey` on configured Sepolia RPC (`.clm/rpc.json`)
 4. Chooses deploy mode based on provided options.
 5. Deploys using `ethers.ContractFactory`.
 6. Waits for deployment and prints deployed address.
@@ -93,8 +94,8 @@ Targeted mode:
 
 ## Important behavior notes
 
-- `--network` currently maps to `SEPOLIA_RPC` for non-dev deployments.
-- Saved keys must exist in `.clm/keys.json` and be decryptable with the same `SECRET` used when they were stored.
+- `--network sepolia` uses the RPC configured via `clm addrpc`.
+- Saved keys must exist in `.clm/keys.json` and be decryptable with the same password used during `privadd`.
 - `--contract` is honored directly and skips the contract selection loop.
 - `--prod` stripping happens only in-memory for compilation and does not modify your Solidity source files.
 - In `--dev` mode, the CLI ensures a local Ganache RPC is running and reuses it for future `--dev` calls.
@@ -116,6 +117,12 @@ Deploy with saved key:
 
 ```bash
 clm deploy contract/myContract.sol --key address1
+```
+
+Deploy with saved key and explicit password:
+
+```bash
+clm deploy contract/myContract.sol --key address1 --password mypass
 ```
 
 Deploy with raw key:
@@ -161,15 +168,17 @@ MyContract deployed at: 0x...
    - Run `clm privadd --name <name> --value <value>` first.
 2. Key not found
    - Verify the exact key name used with `--key`.
-3. Contract not found
+3. Wrong password for saved key
+   - Re-run with the correct `--password` or enter it when prompted.
+4. Contract not found
    - Verify exact contract name passed in `--contract`.
-4. Param mismatch
+5. Param mismatch
    - Make sure `--params` count matches constructor argument count.
-5. Compilation failed
+6. Compilation failed
    - Fix Solidity errors printed in the terminal output.
-6. RPC/wallet errors
-   - Verify `SEPOLIA_RPC`, private key format, balance, and RPC access.
-7. `--dev` deploy works but `call` cannot find contract
+7. RPC/wallet errors
+   - Verify `clm addrpc -n sepolia` has been set, and check private key format, balance, and RPC access.
+8. `--dev` deploy works but `call` cannot find contract
    - Ensure deploy and call target the same network (`--dev` for local chain, default for sepolia).
-8. `console.log(...)` does not print
+9. `console.log(...)` does not print
    - Ensure contract was not deployed with `--prod` and that the call targets the same network used during deploy.

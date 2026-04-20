@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { ethers } from "ethers";
-import { SEPOLIA_RPC } from "./config/env";
+import { getRpcUrl } from "./config/rpc";
 import { compile } from "./compile";
 import { getPrivateKey } from "./keyManager";
 import {
@@ -15,6 +15,7 @@ import {
   askConstructorParams,
 } from "./utils/contract.inquirer";
 import { ensureDevChainRunning } from "./devchain";
+import { resolvePassword } from "./utils/password";
 
 export type DeployMode = "default" | "prod" | "dev";
 
@@ -124,6 +125,7 @@ async function buildSigner(
   mode: DeployMode,
   pkey?: string,
   keyName?: string,
+  keyPassword?: string,
 ): Promise<ethers.Signer> {
   if (mode === "dev") {
     if (pkey || keyName) {
@@ -147,13 +149,21 @@ async function buildSigner(
     throw new Error("Use either --privatekey OR --key, not both");
   }
 
-  const privateKey = keyName ? getPrivateKey(keyName) : pkey;
+  const privateKey = keyName
+    ? getPrivateKey(
+      keyName,
+      await resolvePassword({
+        providedPassword: keyPassword,
+        message: `Password for saved key "${keyName}"`,
+      }),
+    )
+    : pkey;
 
   if (!privateKey) {
     throw new Error("Wallet Private key is required.");
   }
 
-  const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC);
+  const provider = new ethers.JsonRpcProvider(getRpcUrl("sepolia"));
   return new ethers.Wallet(privateKey, provider);
 }
 
@@ -165,6 +175,7 @@ export async function deploy(
   paramsStr?: string,
   contractNameArg?: string,
   mode: DeployMode = "default",
+  keyPassword?: string,
 ) {
   const addressKey = mode === "dev" ? "dev" : "sepolia";
 
@@ -192,7 +203,7 @@ export async function deploy(
   const contractNames = Object.keys(contracts);
   const hasExplicitContract = Boolean(contractNameArg);
   const hasExplicitParams = Boolean(paramsStr && paramsStr.trim().length > 0);
-  const signer = await buildSigner(mode, pkey, keyName);
+  const signer = await buildSigner(mode, pkey, keyName, keyPassword);
 
   // Interactive mode is only for the fully guided flow.
   // Passing --contract and/or --params should skip contract selection loop.

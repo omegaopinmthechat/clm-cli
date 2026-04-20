@@ -20,7 +20,7 @@ function hideDirOnWindows(dirPath: string): void {
   }
 }
 
-export function addPrivateKey(name: string, value: string) {
+export function addPrivateKey(name: string, value: string, password: string) {
   if (!fs.existsSync(CLM_DIR)) {
     fs.mkdirSync(CLM_DIR, { recursive: true });
   }
@@ -33,7 +33,7 @@ export function addPrivateKey(name: string, value: string) {
     data = JSON.parse(fs.readFileSync(KEY_FILE, "utf-8"));
   }
 
-  const encrypted = encrypt(value);
+  const encrypted = encrypt(value, password);
 
   data[name] = encrypted;
 

@@ -6,6 +6,8 @@ import { compile } from "./compile";
 import chokidar from "chokidar";
 import { callContract } from "./call";
 import { initProject } from "./init";
+import { resolvePassword } from "./utils/password";
+import { addRpcConfig } from "./config/rpc";
 
 const program = new Command();
 
@@ -17,8 +19,20 @@ program
   .command("privadd")
   .requiredOption("-a, --name <name>", "key name")
   .requiredOption("-v, --value <value>", "private key")
-  .action((options) => {
-    addPrivateKey(options.name, options.value);
+  .option("--password <value>", "Password used to encrypt saved key")
+  .action(async (options) => {
+    try {
+      const password = await resolvePassword({
+        providedPassword: options.password,
+        requireConfirmation: !options.password,
+        message: "Set password for saved key",
+        confirmationMessage: "Confirm password",
+      });
+
+      addPrivateKey(options.name, options.value, password);
+    } catch (err) {
+      console.log("Error", err);
+    }
   });
 
 // Initialize project scaffold
@@ -33,6 +47,20 @@ program
     }
   });
 
+// Add RPC configuration
+program
+  .command("addrpc")
+  .description("Configure network RPC (currently supports sepolia via Alchemy)")
+  .option("-n, --network <network>", "Network name", "sepolia")
+  .option("--apikey <value>", "Alchemy API key (optional; prompts if omitted)")
+  .action(async (options) => {
+    try {
+      await addRpcConfig(options.network, options.apikey);
+    } catch (err) {
+      console.log("Error", err);
+    }
+  });
+
 // Call : call the contract functions
 program
   .command("call")
@@ -43,6 +71,7 @@ program
   .option("--dev", "Call on local persistent dev chain")
   .option("-k, --key <name>", "Saved key name")
   .option("--privatekey <value>", "Raw private key")
+  .option("--password <value>", "Password for decrypting saved key")
   .action(async (contract, func, args, options) => {
     try {
       await callContract(contract, func, args, {
@@ -50,6 +79,7 @@ program
         network: options.network,
         pkey: options.privatekey,
         keyName: options.key,
+        keyPassword: options.password,
       });
     } catch (err) {
       console.log("Error", err);
@@ -68,6 +98,7 @@ program
   )
   .option("-k, --key <name>", "Saved key name")
   .option("--privatekey <value>", "Raw private key")
+  .option("--password <value>", "Password for decrypting saved key")
   .option("-p, --params <params>", "Constructor params (comma-separated)")
   .option("-c, --contract <name>", "Contract name")
   .action(async (file, options) => {
@@ -90,6 +121,7 @@ program
         options.params,
         options.contract,
         mode,
+        options.password,
       );
     } catch (err) {
       console.log("Error", err);

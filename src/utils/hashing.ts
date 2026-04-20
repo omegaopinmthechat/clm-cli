@@ -1,31 +1,103 @@
 import crypto from "crypto";
-import { SECRET } from "../config/env";
 
-const ALGO = "aes-256-cbc";
+const CIPHER = "aes-256-gcm";
+const KEY_LENGTH = 32;
+const SALT_LENGTH = 16;
+const IV_LENGTH = 12;
 
-export function encrypt(text: string) {
-  const iv = crypto.randomBytes(16);
-  const key = crypto.createHash("sha256").update(SECRET).digest();
+export interface EncryptedPayload {
+  version: 1;
+  kdf: "scrypt";
+  cipher: "aes-256-gcm";
+  salt: string;
+  iv: string;
+  authTag: string;
+  encrypted: string;
+}
 
-  const cipher = crypto.createCipheriv(ALGO, key, iv);
+function ensurePassword(password: string): void {
+  if (!password || password.trim().length === 0) {
+    throw new Error("Password is required.");
+  }
+}
 
-  let encrypted = cipher.update(text, "utf8", "hex");
-  encrypted += cipher.final("hex");
+function deriveKey(password: string, saltHex: string): Buffer {
+  return crypto.scryptSync(password, Buffer.from(saltHex, "hex"), KEY_LENGTH);
+}
+
+function isEncryptedPayload(value: unknown): value is EncryptedPayload {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const payload = value as Record<string, unknown>;
+
+  return (
+    payload.version === 1
+    && payload.kdf === "scrypt"
+    && payload.cipher === "aes-256-gcm"
+    && typeof payload.salt === "string"
+    && typeof payload.iv === "string"
+    && typeof payload.authTag === "string"
+    && typeof payload.encrypted === "string"
+  );
+}
+
+export function encrypt(text: string, password: string): EncryptedPayload {
+  ensurePassword(password);
+
+  const salt = crypto.randomBytes(SALT_LENGTH).toString("hex");
+  const iv = crypto.randomBytes(IV_LENGTH).toString("hex");
+  const key = deriveKey(password, salt);
+
+  const cipher = crypto.createCipheriv(
+    CIPHER,
+    key,
+    Buffer.from(iv, "hex"),
+  );
+
+  const encrypted = Buffer.concat([
+    cipher.update(text, "utf8"),
+    cipher.final(),
+  ]).toString("hex");
 
   return {
-    iv: iv.toString("hex"),
+    version: 1,
+    kdf: "scrypt",
+    cipher: "aes-256-gcm",
+    salt,
+    iv,
+    authTag: cipher.getAuthTag().toString("hex"),
     encrypted,
   };
 }
 
-export function decrypt(encryptedData: string, ivHex: string) {
-  const key = crypto.createHash("sha256").update(SECRET).digest();
-  const iv = Buffer.from(ivHex, "hex");
+export function decrypt(payload: unknown, password: string): string {
+  ensurePassword(password);
 
-  const decipher = crypto.createDecipheriv(ALGO, key, iv);
+  if (!isEncryptedPayload(payload)) {
+    throw new Error(
+      "Saved key uses a legacy format. Re-save it with clm privadd using a password.",
+    );
+  }
 
-  let decrypted = decipher.update(encryptedData, "hex", "utf8");
-  decrypted += decipher.final("utf8");
+  const key = deriveKey(password, payload.salt);
 
-  return decrypted;
+  try {
+    const decipher = crypto.createDecipheriv(
+      CIPHER,
+      key,
+      Buffer.from(payload.iv, "hex"),
+    );
+    decipher.setAuthTag(Buffer.from(payload.authTag, "hex"));
+
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(payload.encrypted, "hex")),
+      decipher.final(),
+    ]).toString("utf8");
+
+    return decrypted;
+  } catch {
+    throw new Error("Failed to decrypt saved key. Check your password.");
+  }
 }

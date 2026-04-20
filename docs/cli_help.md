@@ -16,6 +16,7 @@ Global options:
 ## Command docs
 
 - [privadd_help.md](./privadd_help.md)
+- [addrpc_help.md](./addrpc_help.md)
 - [deploy_help.md](./deploy_help.md)
 - [compile_help.md](./compile_help.md)
 - [call_help.md](./call_help.md)
@@ -26,7 +27,8 @@ Global options:
 
 ## Quick summary
 
-- `clm privadd --name <name> --value <value>`
+- `clm privadd --name <name> --value <value> [--password <value>]`
+- `clm addrpc -n sepolia`
 - `clm deploy [options] <file>`
 - `clm compile [options] <file>`
 - `clm call <contract> <function> [args...] [options]`

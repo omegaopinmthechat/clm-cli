@@ -20,6 +20,7 @@ clm call <contract> <function> [args...] [options]
 - `--dev`: call on local persistent dev chain (`http://127.0.0.1:8545`)
 - `-k, --key <name>`: saved key name from `.clm/keys.json`
 - `--privatekey <value>`: raw private key
+- `--password <value>`: password for decrypting saved key from `--key`
 
 ## Validation rules
 
@@ -32,11 +33,12 @@ clm call <contract> <function> [args...] [options]
 ## What this command does
 
 1. Resolves call mode and provider:
-   - default mode: `SEPOLIA_RPC`
+   - default mode: configured Sepolia RPC from `.clm/rpc.json`
    - `--dev`: local persistent RPC (`127.0.0.1:8545`)
 2. Resolves signer:
    - default mode: from saved key or raw private key
    - `--dev`: from provided key/private key, or local unlocked account if omitted
+   - if `--key` is used and `--password` is omitted, prompts for password
 3. Loads ABI and network-matching address from artifact file.
 4. Sends the function transaction with provided arguments.
 5. Waits for receipt.
@@ -75,6 +77,12 @@ Call using saved key:
 clm call MyContract setMessage "hello" --key address1
 ```
 
+Call using saved key with explicit password:
+
+```bash
+clm call MyContract setMessage "hello" --key address1 --password mypass
+```
+
 Call using raw private key:
 
 ```bash
@@ -99,7 +107,11 @@ clm call MyContract setMessage "hello" --dev --key address1
    - Compile/deploy first so `artifacts/<contract>.json` exists.
 2. Contract address not found
    - Deploy the contract so artifact gets an address for the target network.
-3. Revert or RPC failure
+3. Wrong password for saved key
+   - Re-run with the correct `--password` or enter it when prompted.
+4. Revert or RPC failure
    - Verify network RPC, deployed address, signer balance, and function arguments.
-4. No contract code at address
+5. No contract code at address
    - Deploy and call on the same network (`--dev` for local chain, default for sepolia).
+6. RPC not configured
+   - Run `clm addrpc -n sepolia` before calling on sepolia.
