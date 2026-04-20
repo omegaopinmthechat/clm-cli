@@ -20,6 +20,10 @@ Global options:
 - [compile_help.md](./compile_help.md)
 - [call_help.md](./call_help.md)
 
+## Additional docs
+
+- [artifacts_help.md](./artifacts_help.md)
+
 ## Quick summary
 
 - `clm privadd --name <name> --value <value>`

@@ -138,12 +138,21 @@ export async function callContract(
 
   console.log(`Calling ${functionName} on ${contractName}...`);
 
+  const fragment = contract.interface.getFunction(functionName);
+  
+  if (!fragment) {
+    throw new Error(`Function "${functionName}" not found in contract ABI`);
+  }
+
+  if (fragment.stateMutability === "view" || fragment.stateMutability === "pure") {
+    const result = await contract[functionName](...args);
+    console.log("Result:", result);
+    return;
+  }
+
   const tx = await contract[functionName](...args);
-
   const receipt = await tx.wait();
-
   console.log("Transaction:", receipt.hash);
-
   const iface = new ethers.Interface(abi);
 
   for (const log of receipt.logs) {

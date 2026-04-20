@@ -115,16 +115,38 @@ export function compile(contractPath: string, options: CompileOptions = {}) {
       continue;
     }
 
+    const artifactPath = path.join(artifactsDir, `${name}.json`);
+
+    let existingArtifact: Record<string, unknown> = {};
+    if (fs.existsSync(artifactPath)) {
+      try {
+        const raw = fs.readFileSync(artifactPath, "utf-8");
+        existingArtifact = JSON.parse(raw);
+      } catch {
+        // Ignore corrupted artifact and rebuild from compiled output.
+        existingArtifact = {};
+      }
+    }
+
+    const existingAbi = Array.isArray(existingArtifact["abi"])
+      ? existingArtifact["abi"]
+      : undefined;
+
+    const hasLastDeployedAbi = Array.isArray(
+      existingArtifact["lastDeployedAbi"],
+    );
+
     const artifact = {
+      ...existingArtifact,
+      ...(existingAbi && !hasLastDeployedAbi
+        ? { lastDeployedAbi: existingAbi }
+        : {}),
       contractName: name,
       abi: contract.abi,
       bytecode,
     };
 
-    fs.writeFileSync(
-      path.join(artifactsDir, `${name}.json`),
-      JSON.stringify(artifact, null, 2),
-    );
+    fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
 
     compiledCount++;
   }

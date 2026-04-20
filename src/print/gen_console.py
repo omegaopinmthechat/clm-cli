@@ -102,7 +102,7 @@ lines.append("}")
 
 output = "\n".join(lines)
 
-# this will compile in console_temp.sol if the code is correct change the rename to consol.sol
+# this will compile in console_temp.sol if the code is correct change the rename to console.sol
 out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "console_temp.sol")
 with open(out_path, "w") as f:
     f.write(output)

@@ -24,7 +24,40 @@ function stripConsoleForProd(source: string): string {
     "",
   );
 
-  return withoutConsoleImports.replace(/console\.log\s*\([\s\S]*?\)\s*;/g, "{}");
+  // Remove entire console.log statements (handles nested parens)
+  let result = withoutConsoleImports;
+  const pattern = /console\.log\s*\(/g;
+  let match;
+  while ((match = pattern.exec(result)) !== null) {
+    let depth = 1;
+    let i = match.index + match[0].length;
+    while (i < result.length && depth > 0) {
+      if (result[i] === '(') depth++;
+      else if (result[i] === ')') depth--;
+      i++;
+    }
+    // Find and consume trailing semicolon
+    while (i < result.length && /\s/.test(result[i])) i++;
+    if (result[i] === ';') i++;
+    result = result.slice(0, match.index) + result.slice(i);
+    pattern.lastIndex = match.index;
+  }
+  return result;
+}
+
+function diffAbi(previousAbi: any[], currentAbi: any[]) {
+  const previousMap = new Set(previousAbi.map((entry) => JSON.stringify(entry)));
+  const currentMap = new Set(currentAbi.map((entry) => JSON.stringify(entry)));
+
+  const addedAbi = currentAbi.filter(
+    (entry) => !previousMap.has(JSON.stringify(entry)),
+  );
+
+  const removedAbi = previousAbi.filter(
+    (entry) => !currentMap.has(JSON.stringify(entry)),
+  );
+
+  return { addedAbi, removedAbi };
 }
 
 function persistAddress(contractName: string, address: string, addressKey: string) {
@@ -38,11 +71,52 @@ function persistAddress(contractName: string, address: string, addressKey: strin
     return;
   }
 
-  const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf-8"));
+  let artifact: any;
+  try {
+    artifact = JSON.parse(fs.readFileSync(artifactPath, "utf-8"));
+  } catch {
+    console.warn(`Failed to parse artifact at ${artifactPath}, skipping address persistence`);
+    return;
+  }
+
+  const deployedAt = new Date().toISOString();
+  const currentAbi = Array.isArray(artifact.abi) ? artifact.abi : [];
+  const previousAbi = Array.isArray(artifact.lastDeployedAbi)
+    ? artifact.lastDeployedAbi
+    : [];
+
+  const { addedAbi, removedAbi } = diffAbi(previousAbi, currentAbi);
+
   artifact.addresses = artifact.addresses ?? {};
   artifact.addresses[addressKey] = address;
+
   artifact.address = address;
   artifact.network = addressKey;
+  artifact.lastDeployedAt = deployedAt;
+
+  const currentHistory = Array.isArray(artifact.deploymentHistory)
+    ? artifact.deploymentHistory
+    : [];
+
+  const normalizedHistory = currentHistory.map((entry: any) => ({
+    ...entry,
+    "+abi": Array.isArray(entry?.["+abi"]) ? entry["+abi"] : [],
+    "-abi": Array.isArray(entry?.["-abi"]) ? entry["-abi"] : [],
+  }));
+
+  artifact.deploymentHistory = [
+    ...normalizedHistory,
+    {
+      network: addressKey,
+      address,
+      deployedAt,
+      "+abi": addedAbi,
+      "-abi": removedAbi,
+    },
+  ];
+
+  artifact.lastDeployedAbi = currentAbi;
+
   fs.writeFileSync(artifactPath, JSON.stringify(artifact, null, 2));
 }
 
