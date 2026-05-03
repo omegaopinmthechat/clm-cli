@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "src/print/console.sol";
+// Testing neovim and wsl to update changes
 contract MyContract {
     string public message = "Hello CLM";
     address public admin;
