@@ -1,19 +1,20 @@
 function printYellowClMBanner() {
   // ANSI yellow: \x1b[33m ... \x1b[0m
   const banner = `\x1b[33m
-  00000000000000      00         0000       0000
-  00000000000000      00         00000     00000
-  0000                00         000 00   00 000
-  0000                00         000  00 00  000
-  0000                00         000   000   000
-  0000                00         000    0    000
-  00000000000000      00         000         000
-  00000000000000      00         000         000
+  00000000000000      000              0000       0000
+  00000000000000      000              00000     00000
+  0000                000              000 00   00 000
+  0000                000              000  00 00  000
+  0000                000              000   000   000
+  0000                000              000    0    000
+  00000000000000      00000000000      000         000
+  00000000000000      00000000000      000         000
 \x1b[0m`;
   console.log(banner);
 }
 import fs from "fs";
 import path from "path";
+import { execSync } from "child_process";
 
 const SCRIPTS_DIR = path.join(process.cwd(), "scripts");
 const GITIGNORE_PATH = path.join(process.cwd(), ".gitignore");
@@ -35,6 +36,59 @@ contract MyContract {
   }
 }
 `;
+
+function isGitInstalled(): boolean {
+  try {
+    execSync("git --version", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isInsideGitRepo(): boolean {
+  try {
+    execSync("git rev-parse --is-inside-work-tree", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function initializeGit(): {
+  initialized: boolean;
+  committed: boolean;
+  reason?: string;
+} {
+  if (!isGitInstalled()) {
+    return {
+      initialized: false,
+      committed: false,
+      reason: "git is not installed",
+    };
+  }
+
+  if (isInsideGitRepo()) {
+    return {
+      initialized: false,
+      committed: false,
+      reason: "already inside a git repository",
+    };
+  }
+
+  try {
+    execSync("git init", { stdio: "ignore" });
+    execSync("git add -A", { stdio: "ignore" });
+    execSync('git commit -m "Initial commit from CLM"', { stdio: "ignore" });
+    return { initialized: true, committed: true };
+  } catch {
+    return {
+      initialized: true,
+      committed: false,
+      reason: "commit failed (no git user configured?)",
+    };
+  }
+}
 
 function ensureDirectory(dirPath: string): boolean {
   if (fs.existsSync(dirPath)) {
@@ -110,6 +164,15 @@ export function initProject() {
       `Updated .gitignore: ${gitignoreStatus.added.join(", ")}`,
     );
   }
+
+    // added .git repo
+    const gitResult = initializeGit();
+    if (gitResult.initialized && gitResult.committed) {
+      setupActions.push("Initialized git repository");
+      setupActions.push("Created initial commit");
+    } else if (gitResult.reason) {
+      setupActions.push(`Skipped git init: ${gitResult.reason}`);
+    }
 
   console.log("CLM project initialization complete.");
 
