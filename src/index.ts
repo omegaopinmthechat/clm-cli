@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { Command } from "commander";
 import { deploy } from "./deploy";
 import { addPrivateKey } from "./privadd";
@@ -10,8 +12,23 @@ import { addRpcConfig } from "./config/rpc";
 
 const program = new Command();
 
+const cliVersion = (() => {
+  try {
+    const packageJsonPath = resolve(__dirname, "..", "package.json");
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+
+    if (typeof packageJson.version === "string") {
+      return packageJson.version;
+    }
+  } catch {
+    // Fall back to default version.
+  }
+
+  return "0.0.0";
+})();
+
 // initialization
-program.name("clm").description("CLM SMART CONTRACT CLI").version("0.0.2");
+program.name("clm").description("CLM SMART CONTRACT CLI").version(cliVersion);
 
 // This is for adding private keys
 program
