@@ -12,6 +12,7 @@ import { addRpcConfig } from "./config/rpc";
 
 const program = new Command();
 
+// Checking the version from the package.json so that it is not hard coded
 const cliVersion = (() => {
   try {
     const packageJsonPath = resolve(__dirname, "..", "package.json");
